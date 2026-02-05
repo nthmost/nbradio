@@ -9,7 +9,7 @@ A Liquidsoap-based radio routing service that accepts multiple audio inputs and 
 [DJ Software] ──Shoutcast/Icecast──▶│                 │
          (port 8005)                │                 │
                                     │                 │
-[iPhone/Mac] ──────AirPlay─────────▶│   Liquidsoap    │───▶ [Audio Device] ───▶ [FM Transmitter]
+[iPhone/Mac] ──────AirPlay─────────▶│   Liquidsoap    │───▶ [Audio Device] ───▶ [Amp]
          ("Radio DJ Bay")           │                 │
                                     │                 │
 [Local Music] ─────Playlist────────▶│                 │
