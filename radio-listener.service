@@ -1,0 +1,15 @@
+[Unit]
+Description=Radio DJ Bay - Local Listener
+After=network.target icecast2.service radio.service
+Wants=radio.service
+
+[Service]
+Type=simple
+User=radio
+Group=audio
+ExecStart=/usr/bin/mpv --no-video --ao=alsa --audio-device=alsa/plughw:CARD=PCH,DEV=0 http://localhost:8000/stream.ogg
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

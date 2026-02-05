@@ -1,0 +1,23 @@
+[Unit]
+Description=Radio DJ Bay - Liquidsoap Service
+After=network.target sound.target
+Wants=network.target
+
+[Service]
+Type=simple
+User=liquidsoap
+Group=liquidsoap
+ExecStartPre=+/media/radio/scripts/generate_autodj_playlist.sh
+ExecStart=/usr/bin/liquidsoap /etc/liquidsoap/radio.liq
+ExecReload=/bin/kill -HUP $MAINPID
+Restart=on-failure
+RestartSec=5
+TimeoutStartSec=300
+
+# Logging
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=radio-dj-bay
+
+[Install]
+WantedBy=multi-user.target
