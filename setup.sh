@@ -55,6 +55,15 @@ echo "Installing systemd service..."
 sudo cp radio.service /etc/systemd/system/
 sudo systemctl daemon-reload
 
+# Set up Now Playing HUD for nbradio user
+echo "Setting up Now Playing HUD..."
+if ! id "nbradio" &>/dev/null; then
+    echo "Creating 'nbradio' user..."
+    sudo useradd -r -m -s /bin/bash nbradio
+fi
+sudo -u nbradio pip install --user rich 2>/dev/null || sudo pip install rich
+sudo install -m 755 -o nbradio -g nbradio nowplaying.py /usr/local/bin/nowplaying
+
 echo ""
 echo "=== Setup Complete ==="
 echo ""

@@ -102,17 +102,22 @@ pandora_commercials = playlist.list(
   get_audio_files("/media/radio/pandoras_box/commercials")
 )
 
-# --- Show format: 2 songs, callsign, 2 songs, commercial ---
+# --- Show format: 2 songs, callsign (x5), then 2 songs, commercial ---
+# Commercial every 12 songs. Callsign every 2 songs in between.
 autodj_show = rotate(
   id="autodj_show",
-  weights=[2, 1, 2, 1],
-  [autodj_songs_a, autodj_callsigns, autodj_songs_b, autodj_commercials]
+  weights=[2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1],
+  [autodj_songs_a, autodj_callsigns, autodj_songs_b, autodj_callsigns,
+   autodj_songs_a, autodj_callsigns, autodj_songs_b, autodj_callsigns,
+   autodj_songs_a, autodj_callsigns, autodj_songs_b, autodj_commercials]
 )
 
 pandora_show = rotate(
   id="pandora_show",
-  weights=[2, 1, 2, 1],
-  [pandora_songs_a, pandora_callsigns, pandora_songs_b, pandora_commercials]
+  weights=[2, 1, 2, 1, 2, 1, 2, 1, 2, 1, 2, 1],
+  [pandora_songs_a, pandora_callsigns, pandora_songs_b, pandora_callsigns,
+   pandora_songs_a, pandora_callsigns, pandora_songs_b, pandora_callsigns,
+   pandora_songs_a, pandora_callsigns, pandora_songs_b, pandora_commercials]
 )
 
 # --- Emergency fallback ---

@@ -1,0 +1,15 @@
+[Unit]
+Description=Radio DJ Bay - Now Playing Web Dashboard
+After=network.target icecast2.service radio.service
+Wants=radio.service
+
+[Service]
+Type=simple
+User=radio
+WorkingDirectory=/home/radio/nbradio
+ExecStart=/usr/bin/python3 /home/radio/nbradio/nowplaying_web.py --port 8080
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target
