@@ -260,6 +260,21 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
   .clock { color: var(--dim); font-variant-numeric: tabular-nums; }
   .dj-card .info-value { color: var(--green); }
   .dj-card .info-label { min-width: 7em; }
+  .faq-item { margin-bottom: 0.75rem; }
+  .faq-item:last-child { margin-bottom: 0; }
+  .faq-q {
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: var(--accent);
+    margin-bottom: 0.2rem;
+  }
+  .faq-a {
+    font-size: 0.8rem;
+    color: var(--dim);
+    line-height: 1.5;
+  }
+  .faq-a a { color: var(--cyan); text-decoration: none; }
+  .faq-a a:hover { text-decoration: underline; }
   .footer {
     margin-top: 1rem;
     font-size: 0.7rem;
@@ -332,6 +347,26 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
   <div class="info-row">
     <span class="info-label">Password</span>
     <span class="info-value">nbradio</span>
+  </div>
+</div>
+
+<div class="card">
+  <div class="card-title">FAQ</div>
+  <div class="faq-item">
+    <div class="faq-q">How do I skip the track?</div>
+    <div class="faq-a">You can't. You would change the track for everyone listening as well. If you want to control what's playing, try DJing.</div>
+  </div>
+  <div class="faq-item">
+    <div class="faq-q">Any other ways to control the music?</div>
+    <div class="faq-a">Yes! You can override the stream by setting up OBS, Audio Hijack, or other stream source software on your own machine sitting inside the Noisebridge network and use the DJ connection info above to play whatever you want. Try it!</div>
+  </div>
+  <div class="faq-item">
+    <div class="faq-q">How can I contribute music?</div>
+    <div class="faq-a">Ask nthmost on Discord for an account on beyla. Hard drive limits may apply, or maybe you can get creative with network file storage.</div>
+  </div>
+  <div class="faq-item">
+    <div class="faq-q">How does this work?</div>
+    <div class="faq-a">Icecast + Liquidsoap. For details, see the <a href="https://github.com/nthmost/nbradio" target="_blank">GitHub repo</a>.</div>
   </div>
 </div>
 
