@@ -1,4 +1,4 @@
-# Radio DJ Bay
+# KNOB: Noisebridge Radio
 
 Internet radio station built with Liquidsoap and Icecast.
 
@@ -20,24 +20,43 @@ Internet radio station built with Liquidsoap and Icecast.
 | icecast2 | 8000 | icecast2 | Stream server, serves `/stream.ogg` |
 | liquidsoap | 8005 (DJ), 1234 (telnet) | liquidsoap | Audio routing, mixing, and scheduling |
 | radio-listener | - | radio | Outputs stream to local ALSA sound card |
+| nowplaying | 8080 | radio | Web dashboard and JSON API |
+
+## Web Dashboard
+
+`nowplaying_web.py` serves a dark-themed live dashboard with an in-browser audio player.
+
+- **Public URL**: `https://nthmost.com/nbradio/`
+- **LAN URL**: `http://beyla.local/nbradio/`
+- **API endpoint**: `GET /api/now-playing` (JSON, 1.5s cache)
+- **Deployed to**: `/home/radio/nbradio/` (copied from repo)
+- **Service**: `nowplaying.service` on port 8080
+- **Apache proxy**: both nthmost.com and beyla.local proxy `/nbradio/` → port 8080, `/nbradio/stream.ogg` → Icecast port 8000
+
+After editing `nowplaying_web.py` or `nowplaying.py`:
+```bash
+sudo cp nowplaying.py nowplaying_web.py /home/radio/nbradio/
+sudo chown radio:radio /home/radio/nbradio/nowplaying.py /home/radio/nbradio/nowplaying_web.py
+sudo systemctl restart nowplaying.service
+```
 
 ## Schedule (24-hour)
 
 | Time | Source | Format |
 |------|--------|--------|
-| 2am-10am | AUTODJ | 2 songs / callsign / 2 songs / commercial |
-| 10am-11am | Pandora's Box | 2 songs / callsign / 2 songs / commercial |
-| 11am-5pm | AUTODJ | 2 songs / callsign / 2 songs / commercial |
-| 5pm-6pm | Pandora's Box | 2 songs / callsign / 2 songs / commercial |
-| 6pm-10pm | AUTODJ | 2 songs / callsign / 2 songs / commercial |
-| 10pm-2am | MOBCOIN DEEP DUBSTEAP | true random |
+| 2am-10am | AUTODJ | 2 songs / callsign (x5) / 2 songs / commercial |
+| 10am-11am | Pandora's Box | 2 songs / callsign (x5) / 2 songs / commercial |
+| 11am-5pm | AUTODJ | 2 songs / callsign (x5) / 2 songs / commercial |
+| 5pm-6pm | Pandora's Box | 2 songs / callsign (x5) / 2 songs / commercial |
+| 6pm-10pm | AUTODJ | 2 songs / callsign (x5) / 2 songs / commercial |
+| 10pm-2am | Noisefloor | true random |
 
 DJ input overrides the schedule at any time.
 
 ## Fallback Priority
 
 1. **DJ Input** - Live DJ via Shoutcast/Icecast source client on port 8005
-2. **Scheduled Programming** - Time-based rotation (AUTODJ / Pandora's Box / MOBCOIN)
+2. **Scheduled Programming** - Time-based rotation (AUTODJ / Pandora's Box / Noisefloor)
 3. **SomaFM Synphaera** - Internet radio fallback (ambient/electronic)
 4. **Silence** - Last resort
 
@@ -56,6 +75,9 @@ See `.env.example` for the template.
 | radio.liq | /etc/liquidsoap/radio.liq | Main Liquidsoap config |
 | radio-listener.service | /etc/systemd/system/radio-listener.service | Local audio output service |
 | radio.service | /etc/systemd/system/radio.service | Liquidsoap systemd service |
+| nowplaying.service | /etc/systemd/system/nowplaying.service | Web dashboard service |
+| nowplaying.py, nowplaying_web.py | /home/radio/nbradio/ | Dashboard Python files |
+| apache-nowplaying.conf | (reference) | Apache proxy config snippet |
 | generate_autodj_playlist.sh | /media/radio/scripts/ | Scans all audio, generates AUTODJ playlist |
 
 ## AUTODJ Playlist Generation
@@ -76,7 +98,7 @@ and other directories.
 │   ├── songs/           # Downtempo, lofi (~716 tracks)
 │   ├── callsigns/       # (empty - uses pandoras_box)
 │   └── commercials/     # (empty - uses pandoras_box)
-├── MOBCOIN_DEEP_DUBSTEAP/  # Dubstep/bass (~1016 tracks)
+├── MOBCOIN_DEEP_DUBSTEAP/  # Dubstep/bass (~1016 tracks) — "Noisefloor" show
 ├── pandoras_box/
 │   ├── songs/           # Mixed genre (~194 tracks)
 │   ├── callsigns/       # Station IDs (~26 files)
@@ -127,6 +149,11 @@ HandleLidSwitchExternalPower=ignore
 - **Reason**: Needs `audio` group membership for ALSA device access
 - **Note**: Does not auto-restart when liquidsoap restarts; needs manual restart or `Restart=always`
 
+### nowplaying.service (Web dashboard)
+- **Must run as**: `User=radio`
+- **WorkingDirectory**: `/home/radio/nbradio` (so `from nowplaying import` works)
+- **Note**: Python files are copied from the repo, not symlinked. Redeploy after changes.
+
 ## Service Management
 
 ```bash
@@ -134,19 +161,22 @@ HandleLidSwitchExternalPower=ignore
 sudo systemctl restart icecast2
 sudo systemctl restart radio.service
 sudo systemctl restart radio-listener
+sudo systemctl restart nowplaying.service
 
 # Check status
-systemctl status icecast2 radio.service radio-listener
+systemctl status icecast2 radio.service radio-listener nowplaying.service
 
 # View logs
 sudo tail -f /var/log/liquidsoap/radio.log
 sudo journalctl -u radio-listener -f
+sudo journalctl -u nowplaying -f
 ```
 
 ## Stream URLs
 
 - Local: `http://localhost:8000/stream.ogg`
-- Network: `http://<hostname>:8000/stream.ogg`
+- LAN: `http://beyla.local:8000/stream.ogg`
+- Public (via proxy): `https://nthmost.com/nbradio/stream.ogg`
 
 ## Key Implementation Details
 
@@ -162,8 +192,9 @@ dj_input = blank.strip(
 Without this, the fallback chain would never advance past the DJ input.
 
 ### Show Format via rotate()
-The AUTODJ and Pandora shows use `rotate(weights=[2,1,2,1], ...)` to cycle:
-2 songs → 1 callsign → 2 songs → 1 commercial → repeat.
+The AUTODJ and Pandora shows use `rotate(weights=[2,1,2,1,...], ...)` to cycle:
+2 songs → callsign, repeated 5 times, then 2 songs → commercial.
+Commercial plays every 12 songs; callsign every 2 songs in between.
 
 Separate playlist instances are used for each rotate slot to avoid shared-source issues.
 
@@ -171,6 +202,12 @@ Separate playlist instances are used for each rotate slot to avoid shared-source
 AUTODJ reads a pre-generated M3U file via `process.read()` and `playlist.list()`,
 because `playlist()` (file-based) returns a different type than `playlist.list()` and
 they can't be mixed in `rotate()`.
+
+### Source Detection in Dashboard
+The dashboard detects the active source by checking the current track's file path:
+- `MOBCOIN` in path → Noisefloor
+- `pandoras_box` in path → Pandora's Box
+- Everything else → AUTODJ
 
 ## Deploying Changes
 
@@ -183,4 +220,9 @@ sudo systemctl restart radio.service
 
 # Don't forget the listener
 sudo systemctl restart radio-listener
+
+# If dashboard files changed:
+sudo cp nowplaying.py nowplaying_web.py /home/radio/nbradio/
+sudo chown radio:radio /home/radio/nbradio/nowplaying.py /home/radio/nbradio/nowplaying_web.py
+sudo systemctl restart nowplaying.service
 ```
