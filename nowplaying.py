@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Radio DJ Bay - Now Playing HUD
+"""KNOB - Now Playing HUD
 
 Low-tech terminal display showing current track, schedule, and stream info.
 Uses Rich for rendering, polls Icecast JSON + Liquidsoap telnet for data.
@@ -22,7 +22,7 @@ from rich.console import Group
 
 # Schedule definition (must match radio.liq)
 SCHEDULE = [
-    (22, 2, "MOBCOIN DEEP DUBSTEAP", "random"),
+    (22, 2, "Noisefloor", "random"),
     (10, 11, "Pandora's Box", "show"),
     (17, 18, "Pandora's Box", "show"),
     (0, 24, "AUTODJ", "show"),  # default/fallback
@@ -222,7 +222,7 @@ def build_display(icecast, telnet_meta, remaining):
     detected_source = ""
     if filename:
         if "MOBCOIN" in filename:
-            detected_source = "MOBCOIN DEEP DUBSTEAP"
+            detected_source = "Noisefloor"
         elif "pandoras_box" in filename:
             detected_source = "Pandora's Box"
         elif "AUTODJ" in filename:
@@ -250,7 +250,7 @@ def build_display(icecast, telnet_meta, remaining):
 
     track_panel = Panel(
         track_table,
-        title="[bold]Radio DJ Bay[/bold]",
+        title="[bold]KNOB[/bold]",
         border_style="blue",
         padding=(1, 2),
     )
@@ -321,7 +321,7 @@ def build_display(icecast, telnet_meta, remaining):
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Radio DJ Bay - Now Playing HUD")
+    parser = argparse.ArgumentParser(description="KNOB - Now Playing HUD")
     parser.add_argument(
         "--interval", type=float, default=2.0, help="Refresh interval in seconds"
     )

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Radio DJ Bay - Now Playing Web Dashboard
+"""KNOB - Now Playing Web Dashboard
 
 Zero-dependency HTTP server serving a live dashboard and JSON API.
 Reuses data-fetching functions from nowplaying.py.
@@ -64,7 +64,7 @@ def get_now_playing():
     source = current_source
     if filename:
         if "MOBCOIN" in filename:
-            source = "MOBCOIN DEEP DUBSTEAP"
+            source = "Noisefloor"
         elif "pandoras_box" in filename:
             source = "Pandora's Box"
         else:
@@ -106,7 +106,7 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Radio DJ Bay</title>
+<title>KNOB</title>
 <style>
   :root {
     --bg: #0e0e12;
@@ -276,7 +276,7 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
 </head>
 <body>
 
-<h1><span class="status-dot" id="statusDot"></span> Radio DJ Bay</h1>
+<h1><span class="status-dot" id="statusDot"></span> KNOB</h1>
 
 <div class="card now-playing">
   <div class="card-title">Now Playing</div>
@@ -335,7 +335,7 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
   </div>
 </div>
 
-<div class="footer">Radio DJ Bay &middot; Noisebridge</div>
+<div class="footer">KNOB &middot; Broadcasting from the Noisefloor</div>
 
 <script>
 (function() {
@@ -349,7 +349,7 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
   function sourceBadgeClass(src) {
     if (!src) return 'autodj';
     var s = src.toLowerCase();
-    if (s.indexOf('mobcoin') !== -1) return 'mobcoin';
+    if (s.indexOf('noisefloor') !== -1) return 'mobcoin';
     if (s.indexOf('pandora') !== -1) return 'pandora';
     if (s.indexOf('dj') !== -1 && s.indexOf('auto') === -1) return 'dj';
     return 'autodj';
@@ -506,7 +506,7 @@ class NowPlayingHandler(BaseHTTPRequestHandler):
 # --- Main ---------------------------------------------------------------------
 
 def main():
-    parser = argparse.ArgumentParser(description="Radio DJ Bay - Now Playing Web Dashboard")
+    parser = argparse.ArgumentParser(description="KNOB - Now Playing Web Dashboard")
     parser.add_argument("--port", type=int, default=8080, help="HTTP port (default: 8080)")
     parser.add_argument("--bind", default="0.0.0.0", help="Bind address (default: 0.0.0.0)")
     args = parser.parse_args()

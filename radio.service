@@ -1,5 +1,5 @@
 [Unit]
-Description=Radio DJ Bay - Liquidsoap Service
+Description=KNOB - Liquidsoap Service
 After=network.target sound.target
 Wants=network.target
 
@@ -17,7 +17,7 @@ TimeoutStartSec=300
 # Logging
 StandardOutput=journal
 StandardError=journal
-SyslogIdentifier=radio-dj-bay
+SyslogIdentifier=knob
 
 [Install]
 WantedBy=multi-user.target

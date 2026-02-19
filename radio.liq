@@ -1,6 +1,6 @@
 #!/usr/bin/liquidsoap
 
-# Radio DJ Bay - Liquidsoap Configuration
+# KNOB - Liquidsoap Configuration
 # Scheduled programming with DJ override
 
 # Log settings
@@ -78,7 +78,7 @@ pandora_songs_b = playlist.list(
   get_audio_files("/media/radio/pandoras_box/songs")
 )
 
-# --- MOBCOIN DEEP DUBSTEAP (true random, no show format) ---
+# --- Noisefloor (true random, no show format) ---
 mobcoin = playlist.list(
   id="mobcoin", mode="random",
   get_audio_files("/media/radio/MOBCOIN_DEEP_DUBSTEAP")
@@ -131,7 +131,7 @@ silence_source = blank(id="silence")
 # SCHEDULE (24-hour)
 # ===========================================
 #
-#  10pm - 2am : MOBCOIN DEEP DUBSTEAP (true random)
+#  10pm - 2am : Noisefloor (true random)
 #  10am - 11am: Pandora's Box (show format)
 #   5pm - 6pm : Pandora's Box (show format)
 #  All other  : AUTODJ (show format)
@@ -173,10 +173,10 @@ output.icecast(
 )
 
 # Startup message
-log("=== Radio DJ Bay Started ===")
+log("=== KNOB Started ===")
 log("DJ Input: port 8005")
 log("Schedule:")
-log("  10pm-2am: MOBCOIN DEEP DUBSTEAP (true random)")
+log("  10pm-2am: Noisefloor (true random)")
 log("  10-11am, 5-6pm: Pandora's Box (2 songs/callsign/2 songs/commercial)")
 log("  All other hours: AUTODJ (2 songs/callsign/2 songs/commercial)")
 log("Emergency fallback: SomaFM Synphaera")

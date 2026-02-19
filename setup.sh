@@ -1,9 +1,9 @@
 #!/bin/bash
-# Setup script for Radio DJ Bay
+# Setup script for KNOB
 
 set -e
 
-echo "=== Radio DJ Bay Setup ==="
+echo "=== KNOB Setup ==="
 
 # Install dependencies
 echo "Checking dependencies..."

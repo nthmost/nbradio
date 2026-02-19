@@ -1,5 +1,5 @@
 [Unit]
-Description=Radio DJ Bay - Now Playing Web Dashboard
+Description=KNOB - Now Playing Web Dashboard
 After=network.target icecast2.service radio.service
 Wants=radio.service
 

@@ -1,5 +1,5 @@
 [Unit]
-Description=Radio DJ Bay - Local Listener
+Description=KNOB - Local Listener
 After=network.target icecast2.service radio.service
 Wants=radio.service
 
