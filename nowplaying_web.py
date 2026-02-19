@@ -276,7 +276,7 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
 </head>
 <body>
 
-<h1><span class="status-dot" id="statusDot"></span> KNOB</h1>
+<h1><span class="status-dot" id="statusDot"></span> KNOB: Noisebridge Radio</h1>
 
 <div class="card now-playing">
   <div class="card-title">Now Playing</div>
