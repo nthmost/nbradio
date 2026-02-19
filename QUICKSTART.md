@@ -1,20 +1,19 @@
 # Quick Start Guide
 
-Step-by-step instructions to get Radio DJ Bay running.
+Step-by-step instructions to get KNOB: Noisebridge Radio running.
 
 ## Prerequisites
 
 - Ubuntu/Debian-based Linux system
-- A `radio` user already created (you mentioned you have this)
-- Audio output device configured (e.g., USB sound card for FM transmitter)
+- Audio files in `/media/radio/` (see README for directory structure)
+- Icecast2 installed and running on port 8000
 
 ## Step 1: Verify the radio user
 
 ```bash
-# Check that the radio user exists
 id radio
 
-# If not, create it:
+# If it doesn't exist:
 sudo useradd -r -m -s /bin/bash -G audio radio
 ```
 
@@ -22,7 +21,8 @@ sudo useradd -r -m -s /bin/bash -G audio radio
 
 ```bash
 sudo apt-get update
-sudo apt-get install -y liquidsoap liquidsoap-plugin-alsa shairport-sync avahi-daemon
+sudo apt-get install -y liquidsoap icecast2 mpv
+pip install rich  # for the terminal HUD
 ```
 
 ## Step 3: Run the setup script
@@ -35,171 +35,108 @@ cd /path/to/nbradio
 This will:
 - Add the `radio` user to the `audio` group
 - Create `/var/log/liquidsoap/` for logs
-- Create `/media/radio/kstk/` and `/media/radio/pandora/` directories
-- Install configuration files to `/etc/`
+- Install `radio.liq` to `/etc/liquidsoap/`
 - Install systemd service files
+- Generate the AUTODJ playlist
 
-## Step 4: Add music to the playlists
-
-```bash
-# Copy music to the station directories
-# (as the radio user or with appropriate permissions)
-cp -r /path/to/your/music/* /media/radio/kstk/
-
-# Or for the pandora station
-cp -r /path/to/other/music/* /media/radio/pandora/
-```
-
-## Step 5: Configure the audio output device
-
-List available audio devices:
+## Step 4: Set up credentials
 
 ```bash
-aplay -l
+cp .env.example .env
+# Edit .env with your DJ and Icecast passwords
 ```
 
-Example output:
-```
-**** List of PLAYBACK Hardware Devices ****
-card 0: PCH [HDA Intel PCH], device 0: ALC892 Analog [ALC892 Analog]
-card 1: Device [USB Audio Device], device 0: USB Audio [USB Audio]
-```
-
-If your FM transmitter is on card 1, edit the config:
+## Step 5: Start the services
 
 ```bash
-sudo nano /etc/liquidsoap/radio.liq
+sudo systemctl enable --now icecast2
+sudo systemctl enable --now radio.service
+sudo systemctl enable --now radio-listener
+sudo systemctl enable --now nowplaying.service
 ```
 
-Find this line near the bottom:
-```liquidsoap
-output.alsa(device="default", radio)
-```
+## Step 6: Verify it's working
 
-Change it to:
-```liquidsoap
-output.alsa(device="hw:1,0", radio)
-```
-
-## Step 6: Start the services
+### Check service status
 
 ```bash
-# Start both services
-sudo systemctl start shairport-sync
-sudo systemctl start radio
-
-# Check status
-sudo systemctl status shairport-sync
-sudo systemctl status radio
+systemctl status icecast2 radio.service radio-listener nowplaying.service
 ```
 
-## Step 7: Enable on boot (optional)
+### Check the stream
 
 ```bash
-sudo systemctl enable shairport-sync radio
+# Stream should be live
+curl -s -o /dev/null -w "%{http_code}" http://localhost:8000/stream.ogg
+# Should return 200
+
+# Dashboard should be serving
+curl -s http://localhost:8080/api/now-playing | python3 -m json.tool
 ```
 
-## Step 8: Verify it's working
+### Open the dashboard
 
-### Check the logs
+- LAN: http://beyla.local/nbradio/
+- Or directly: http://localhost:8080/
 
-```bash
-# Liquidsoap logs
-sudo tail -f /var/log/liquidsoap/radio.log
+### Test a DJ connection
 
-# Or via journald
-journalctl -u radio -f
-```
-
-### Test AirPlay
-
-On an iPhone or Mac:
-1. Open Control Center
-2. Tap the AirPlay icon
-3. Look for "Radio DJ Bay"
-4. Select it and play audio
-
-### Test DJ connection
-
-Using BUTT or similar software:
-- Server: `your-server-ip`
-- Port: `8005`
+Using BUTT, Mixxx, OBS, or similar:
+- Host: `beyla:8005`
 - Mount: `/live`
-- Username: (see `.env` file)
-- Password: (see `.env` file)
-
-### Test telnet control
-
-```bash
-telnet localhost 1234
-```
-
-Then type:
-```
-station.get
-station.set pandora
-station.get
-```
+- Username: `nbradio`
+- Password: `nbradio`
 
 ## Troubleshooting
 
 ### Service won't start
 
 ```bash
-# Check for errors
 journalctl -u radio -e
-journalctl -u shairport-sync -e
+sudo tail -f /var/log/liquidsoap/radio.log
 
-# Test liquidsoap config directly
-sudo -u radio liquidsoap --check /etc/liquidsoap/radio.liq
+# Test config directly
+sudo -u liquidsoap liquidsoap --check /etc/liquidsoap/radio.liq
 ```
 
-### No audio output
+### No local audio output
 
 ```bash
-# Test ALSA directly
-sudo -u radio speaker-test -D hw:1,0 -c 2
+# Check ALSA device
+aplay -l
 
-# Check if radio user is in audio group
+# Test directly
+sudo -u radio speaker-test -D plughw:CARD=PCH,DEV=0 -c 2
+
+# Check radio user is in audio group
 groups radio
 ```
 
-### AirPlay not visible
+### Dashboard not loading
 
 ```bash
-# Check avahi is running
-sudo systemctl status avahi-daemon
+systemctl status nowplaying.service
+journalctl -u nowplaying -f
 
-# Check shairport-sync is running
-sudo systemctl status shairport-sync
-```
-
-### Playlists not playing
-
-```bash
-# Check if music files exist and are readable
-sudo -u radio ls -la /media/radio/kstk/
-
-# Check file permissions
-sudo chown -R radio:radio /media/radio/
+# Test manually
+cd /home/radio/nbradio && python3 nowplaying_web.py --port 8080
 ```
 
 ## Quick Reference
 
 | Task | Command |
 |------|---------|
-| Start services | `sudo systemctl start shairport-sync radio` |
-| Stop services | `sudo systemctl stop radio shairport-sync` |
-| Restart services | `sudo systemctl restart shairport-sync radio` |
-| View logs | `journalctl -u radio -f` |
-| Switch to KSTK | `echo "station.set kstk" | nc localhost 1234` |
-| Switch to Pandora | `echo "station.set pandora" | nc localhost 1234` |
-| Check current station | `echo "station.get" | nc localhost 1234` |
+| Restart everything | `sudo systemctl restart icecast2 radio.service radio-listener nowplaying.service` |
+| Check status | `systemctl status icecast2 radio.service radio-listener nowplaying.service` |
+| View Liquidsoap logs | `sudo tail -f /var/log/liquidsoap/radio.log` |
+| View dashboard logs | `journalctl -u nowplaying -f` |
+| Telnet control | `telnet localhost 1234` |
 
 ## Service Dependency Order
 
 ```
-avahi-daemon → shairport-sync → radio
+icecast2 → radio.service → radio-listener
+                         → nowplaying.service
 ```
 
-Always start shairport-sync before radio (the systemd dependencies handle this automatically).
+The systemd unit files handle dependencies automatically.
