@@ -307,7 +307,7 @@ def build_display(icecast, telnet_meta, remaining):
     )
     dj_table.add_row(
         "APPS",
-        Text("BUTT, Mixxx, Audio Hijack, OBS, or any Shoutcast-compatible source", style="dim"),
+        Text("OBS (recommended), Mixxx, Audio Hijack, or any Shoutcast-compatible source", style="dim"),
     )
 
     dj_panel = Panel(

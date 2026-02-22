@@ -1,0 +1,17 @@
+# KNOB Radio Genre Indexer dependencies
+# Install: pip install -r requirements-genre.txt
+
+# Pass 1 - Metadata (likely already installed)
+mutagen>=1.46
+
+# Pass 2 - AcoustID (also needs: sudo apt install chromaprint-tools)
+pyacoustid>=1.2
+
+# Pass 3 - MAEST ML classification
+# Install torch CPU-only to avoid pulling CUDA:
+#   pip install torch --index-url https://download.pytorch.org/whl/cpu
+torch>=2.0
+transformers>=4.30
+librosa>=0.10
+numpy>=1.24
+soundfile>=0.12

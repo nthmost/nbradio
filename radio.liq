@@ -25,10 +25,11 @@ dj_harbor = input.harbor(
   on_connect=fun(metadata) -> log("DJ connected: #{metadata}")
 )
 
-# Silence detection: after 3s of silence, source becomes unavailable
+# Silence detection: after 15s of silence, source becomes unavailable
+# (enough headroom for DJs switching tracks without triggering fallback)
 dj_input = blank.strip(
   id="dj_strip",
-  max_blank=3.0,
+  max_blank=10.0,
   threshold=-40.0,
   dj_harbor
 )

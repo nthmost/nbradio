@@ -7,6 +7,7 @@ Wants=network.target
 Type=simple
 User=liquidsoap
 Group=liquidsoap
+EnvironmentFile=/etc/liquidsoap/.env
 ExecStartPre=+/media/radio/scripts/generate_autodj_playlist.sh
 ExecStart=/usr/bin/liquidsoap /etc/liquidsoap/radio.liq
 ExecReload=/bin/kill -HUP $MAINPID

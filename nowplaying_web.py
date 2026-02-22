@@ -358,7 +358,7 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
   </div>
   <div class="faq-item">
     <div class="faq-q">Any other ways to control the music?</div>
-    <div class="faq-a">Yes! You can override the stream by setting up OBS, Audio Hijack, or other stream source software on your own machine sitting inside the Noisebridge network and use the DJ connection info above to play whatever you want. Try it!</div>
+    <div class="faq-a">Yes! You can override the stream by connecting with OBS (recommended), Audio Hijack, or another Icecast-compatible source client from your own machine on the Noisebridge network. Use the DJ connection info above to play whatever you want. Try it!</div>
   </div>
   <div class="faq-item">
     <div class="faq-q">How can I contribute music?</div>
