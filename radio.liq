@@ -150,14 +150,24 @@ schedule = switch(
 )
 
 # ===========================================
+# REQUEST QUEUE (API-driven playback)
+# ===========================================
+
+queue = request.queue(id="queue")
+
+# ===========================================
 # MAIN OUTPUT CHAIN
 # ===========================================
 
-# Priority: DJ > Schedule > SomaFM > Silence
+# Priority: DJ > Queue > Schedule > SomaFM > Silence
+# track_sensitive=false so the schedule takes over from SomaFM immediately
+# at startup (an HTTP stream never ends a "track", so track_sensitive=true
+# would lock SomaFM in forever once it grabs the output)
 radio = fallback(
   track_sensitive=false,
   [
     dj_input,
+    queue,
     schedule,
     somafm_synphaera,
     silence_source
@@ -181,4 +191,5 @@ log("  10pm-2am: Noisefloor (true random)")
 log("  10-11am, 5-6pm: Pandora's Box (2 songs/callsign/2 songs/commercial)")
 log("  All other hours: AUTODJ (2 songs/callsign/2 songs/commercial)")
 log("Emergency fallback: SomaFM Synphaera")
+log("Request queue: queue.push / queue.queue / queue.ignore")
 log("Telnet control: port 1234")
