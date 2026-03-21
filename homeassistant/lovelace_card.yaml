@@ -1,0 +1,60 @@
+# KNOB Radio - Lovelace Dashboard Card
+# Add this as a manual card in your HA dashboard
+# (Edit Dashboard → Add Card → Manual → paste this)
+
+type: vertical-stack
+cards:
+  - type: entities
+    title: KNOB Radio
+    icon: mdi:radio
+    show_header_toggle: false
+    entities:
+      - entity: sensor.knob_now_playing
+        name: Now Playing
+        icon: mdi:music-note
+      - type: attribute
+        entity: sensor.knob_now_playing
+        attribute: remaining_fmt
+        name: Remaining
+        icon: mdi:timer-outline
+      - type: attribute
+        entity: sensor.knob_now_playing
+        attribute: source
+        name: Source
+        icon: mdi:broadcast
+      - type: attribute
+        entity: sensor.knob_now_playing
+        attribute: listeners
+        name: Listeners
+        icon: mdi:account-group
+      - entity: sensor.knob_genre_override
+        name: Genre Override
+        icon: mdi:tag-music
+      - entity: input_select.knob_genre
+        name: Set Genre
+
+  - type: horizontal-stack
+    cards:
+      - type: button
+        name: Skip
+        icon: mdi:skip-next
+        tap_action:
+          action: perform-action
+          perform_action: rest_command.knob_skip
+        icon_height: 40px
+
+      - type: button
+        name: Clear Queue
+        icon: mdi:playlist-remove
+        tap_action:
+          action: perform-action
+          perform_action: rest_command.knob_clear_queue
+        icon_height: 40px
+
+      - type: button
+        name: Clear Genre
+        icon: mdi:close-circle-outline
+        tap_action:
+          action: perform-action
+          perform_action: rest_command.knob_clear_genre
+        icon_height: 40px

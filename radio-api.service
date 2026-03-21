@@ -1,0 +1,14 @@
+[Unit]
+Description=KNOB Radio Control API
+After=radio.service
+Wants=radio.service
+
+[Service]
+User=radio
+WorkingDirectory=/home/radio/nbradio
+ExecStart=/usr/bin/python3 radio_api.py --port 8081
+Restart=on-failure
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

@@ -1,0 +1,19 @@
+[Unit]
+Description=KNOB - DJ Admin Panel
+After=network.target
+
+[Service]
+Type=simple
+User=liquidsoap
+Group=liquidsoap
+ExecStart=/usr/bin/python3 /etc/liquidsoap/admin_web.py --port 8083
+Restart=on-failure
+RestartSec=5
+
+# Security: no external access needed
+StandardOutput=journal
+StandardError=journal
+SyslogIdentifier=knob-admin
+
+[Install]
+WantedBy=multi-user.target

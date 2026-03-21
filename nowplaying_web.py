@@ -15,6 +15,8 @@ from http.server import ThreadingHTTPServer, BaseHTTPRequestHandler
 
 from nowplaying import (
     fetch_icecast_status,
+    fetch_genre_override,
+    get_harbor_status,
     get_telnet_metadata,
     get_remaining,
     get_scheduled_source,
@@ -24,11 +26,105 @@ from nowplaying import (
     SCHEDULE,
 )
 
+try:
+    from shazamio import Shazam
+    SHAZAM_AVAILABLE = True
+except ImportError:
+    SHAZAM_AVAILABLE = False
+
+import asyncio
+import subprocess
+import tempfile
+
 # --- Response cache -----------------------------------------------------------
 
 _cache_lock = threading.Lock()
 _cache = {"data": None, "ts": 0}
 CACHE_TTL = 1.5
+
+
+# --- Shazam recognition state -------------------------------------------------
+
+_shazam_lock = threading.Lock()
+_shazam_state = {
+    "dj_connected": False,
+    "dj_client_ip": None,
+    "title": None,
+    "artist": None,
+    "url": None,
+}
+
+SHAZAM_INTERVAL = 30  # seconds between recognition attempts
+SAMPLE_DURATION = 15  # seconds of audio to capture
+
+
+def _capture_stream_sample(path, duration=SAMPLE_DURATION):
+    """Capture audio from the Icecast stream to a WAV file."""
+    try:
+        subprocess.run(
+            ["ffmpeg", "-y", "-i", "http://localhost:8000/stream.ogg",
+             "-t", str(duration), "-ar", "44100", "-ac", "1", path],
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            timeout=duration + 10,
+        )
+        return True
+    except Exception:
+        return False
+
+
+def _recognize_sample(path):
+    """Run Shazam recognition on an audio file. Returns (artist, title, url) or Nones."""
+    try:
+        shazam = Shazam()
+        result = asyncio.run(shazam.recognize(path))
+        track = result.get("track")
+        if track:
+            return (
+                track.get("subtitle"),
+                track.get("title"),
+                track.get("url"),
+            )
+    except Exception:
+        pass
+    return None, None, None
+
+
+def _shazam_loop():
+    """Background thread: periodically check for DJ and run Shazam recognition."""
+    # Short initial delay so the service can finish starting
+    time.sleep(5)
+    while True:
+        try:
+            harbor = get_harbor_status()
+            if harbor["connected"]:
+                artist, title, url = None, None, None
+                if SHAZAM_AVAILABLE:
+                    with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
+                        sample_path = f.name
+                    try:
+                        if _capture_stream_sample(sample_path):
+                            artist, title, url = _recognize_sample(sample_path)
+                    finally:
+                        try:
+                            os.unlink(sample_path)
+                        except OSError:
+                            pass
+                with _shazam_lock:
+                    _shazam_state["dj_connected"] = True
+                    _shazam_state["dj_client_ip"] = harbor["client_ip"]
+                    _shazam_state["title"] = title
+                    _shazam_state["artist"] = artist
+                    _shazam_state["url"] = url
+            else:
+                with _shazam_lock:
+                    _shazam_state["dj_connected"] = False
+                    _shazam_state["dj_client_ip"] = None
+                    _shazam_state["title"] = None
+                    _shazam_state["artist"] = None
+                    _shazam_state["url"] = None
+        except Exception:
+            pass
+        time.sleep(SHAZAM_INTERVAL)
 
 
 def get_now_playing():
@@ -76,6 +172,17 @@ def get_now_playing():
         listeners = icecast.get("listeners", 0)
         listener_peak = icecast.get("listener_peak", 0)
 
+    # Check DJ/Shazam state
+    with _shazam_lock:
+        dj_connected = _shazam_state["dj_connected"]
+        dj_client_ip = _shazam_state["dj_client_ip"]
+        shazam_artist = _shazam_state["artist"]
+        shazam_title = _shazam_state["title"]
+        shazam_url = _shazam_state["url"]
+
+    if dj_connected:
+        source = "LIVE DJ"
+
     data = {
         "artist": artist,
         "title": title,
@@ -90,6 +197,12 @@ def get_now_playing():
         "listener_peak": listener_peak,
         "time": now.strftime("%I:%M:%S %p"),
         "icecast_connected": icecast is not None,
+        "genre_override": fetch_genre_override(),
+        "dj_connected": dj_connected,
+        "dj_client_ip": dj_client_ip,
+        "shazam_artist": shazam_artist,
+        "shazam_title": shazam_title,
+        "shazam_url": shazam_url,
     }
 
     with _cache_lock:
@@ -213,6 +326,32 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
   .source-badge.pandora { background: #2a1a3a; color: var(--magenta); border: 1px solid #3a2a5a; }
   .source-badge.mobcoin { background: #3a2a1a; color: var(--yellow); border: 1px solid #5a3a2a; }
   .source-badge.dj { background: #1a2a3a; color: var(--accent); border: 1px solid #2a3a5a; }
+  .genre-badge {
+    display: inline-block;
+    padding: 0.25rem 0.75rem;
+    border-radius: 4px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    letter-spacing: 0.05em;
+    margin-top: 0.5rem;
+    background: #2a1a3a;
+    color: var(--magenta);
+    border: 1px solid #3a2a5a;
+  }
+  .genre-badge.hidden { display: none; }
+  .shazam-info {
+    margin-top: 0.75rem;
+    padding: 0.5rem 0.75rem;
+    background: #1a1a2a;
+    border: 1px solid #2a2a4a;
+    border-radius: 4px;
+    font-size: 0.85rem;
+  }
+  .shazam-info.hidden { display: none; }
+  .shazam-label { color: var(--dim); font-size: 0.7rem; letter-spacing: 0.1em; text-transform: uppercase; }
+  .shazam-track { color: var(--text); }
+  .shazam-track a { color: var(--cyan); text-decoration: none; }
+  .shazam-track a:hover { text-decoration: underline; }
   .player-wrap { display: flex; align-items: center; gap: 0.75rem; }
   .play-btn {
     width: 44px; height: 44px;
@@ -299,6 +438,10 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
   <div class="filename" id="filename"></div>
   <div class="remaining" id="remaining">--:--</div>
   <div id="sourceBadge"></div>
+  <div class="genre-badge hidden" id="genreBadge"></div>
+  <div class="shazam-info hidden" id="shazamInfo">
+    <span class="shazam-track" id="shazamTrack"></span>
+  </div>
 </div>
 
 <div class="card">
@@ -428,6 +571,36 @@ DASHBOARD_HTML = r"""<!DOCTYPE html>
     badge.innerHTML = '<span class="source-badge ' + sourceBadgeClass(d.source) + '">'
       + esc(d.source) + '</span>';
 
+    // Genre override
+    var genreBadge = $('genreBadge');
+    if (d.genre_override) {
+      genreBadge.textContent = 'Genre: ' + d.genre_override;
+      genreBadge.classList.remove('hidden');
+    } else {
+      genreBadge.classList.add('hidden');
+    }
+
+    // Shazam info (when DJ is live)
+    var shazamEl = $('shazamInfo');
+    if (d.dj_connected && d.shazam_title) {
+      var shazamHtml = '<span class="shazam-label">Shazam: </span>';
+      var trackText = '';
+      if (d.shazam_artist) trackText += esc(d.shazam_artist) + ' \u2014 ';
+      trackText += esc(d.shazam_title);
+      if (d.shazam_url) {
+        shazamHtml += '<a href="' + esc(d.shazam_url) + '" target="_blank">' + trackText + '</a>';
+      } else {
+        shazamHtml += trackText;
+      }
+      $('shazamTrack').innerHTML = shazamHtml;
+      shazamEl.classList.remove('hidden');
+    } else {
+      shazamEl.classList.add('hidden');
+    }
+
+    // When DJ is live, hide remaining time (meaningless for live input)
+    $('remaining').style.display = d.dj_connected ? 'none' : '';
+
     // Schedule
     if (d.next_source && d.next_hour_fmt) {
       $('scheduleCurrent').textContent = d.scheduled_source + ' until ' + d.next_hour_fmt;
@@ -545,6 +718,14 @@ def main():
     parser.add_argument("--port", type=int, default=8080, help="HTTP port (default: 8080)")
     parser.add_argument("--bind", default="0.0.0.0", help="Bind address (default: 0.0.0.0)")
     args = parser.parse_args()
+
+    # Start background DJ detection / Shazam recognition thread
+    shazam_thread = threading.Thread(target=_shazam_loop, daemon=True)
+    shazam_thread.start()
+    if SHAZAM_AVAILABLE:
+        print("Shazam recognition: enabled")
+    else:
+        print("Shazam recognition: disabled (shazamio not installed)")
 
     server = ThreadingHTTPServer((args.bind, args.port), NowPlayingHandler)
     print(f"Now Playing dashboard: http://{args.bind}:{args.port}/")

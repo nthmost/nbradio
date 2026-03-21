@@ -1,3 +1,6 @@
 .env
 *.m3u
 __pycache__/
+admin_credentials
+dj_credentials
+*.csv

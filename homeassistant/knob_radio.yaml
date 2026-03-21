@@ -1,0 +1,156 @@
+# KNOB Radio - Home Assistant Integration
+# Add to configuration.yaml:  knob_radio: !include knob_radio.yaml
+# Or paste contents directly into configuration.yaml under the appropriate keys.
+#
+# API base: http://beyla.local:8081
+
+# ─── REST Commands ────────────────────────────────────────────────────────────
+
+rest_command:
+  knob_set_genre:
+    url: "http://beyla.local:8081/api/genre"
+    method: POST
+    content_type: "application/json"
+    payload: >-
+      {% if genre_sub is defined and genre_sub %}
+        {"genre": "{{ genre }}", "subgenre": "{{ genre_sub }}"}
+      {% else %}
+        {"genre": "{{ genre }}"}
+      {% endif %}
+
+  knob_clear_genre:
+    url: "http://beyla.local:8081/api/genre"
+    method: DELETE
+
+  knob_queue_track:
+    url: "http://beyla.local:8081/api/queue"
+    method: POST
+    content_type: "application/json"
+    payload: '{"search": "{{ search }}"}'
+
+  knob_queue_by_id:
+    url: "http://beyla.local:8081/api/queue"
+    method: POST
+    content_type: "application/json"
+    payload: '{"track_id": {{ track_id }}}'
+
+  knob_clear_queue:
+    url: "http://beyla.local:8081/api/queue"
+    method: DELETE
+
+  knob_skip:
+    url: "http://beyla.local:8081/api/skip"
+    method: POST
+
+# ─── Sensors ──────────────────────────────────────────────────────────────────
+
+sensor:
+  - platform: rest
+    name: "KNOB Now Playing"
+    resource: "http://beyla.local:8081/api/now-playing"
+    scan_interval: 5
+    value_template: >-
+      {% if value_json.artist and value_json.title %}
+        {{ value_json.artist }} - {{ value_json.title }}
+      {% elif value_json.title %}
+        {{ value_json.title }}
+      {% elif value_json.filename %}
+        {{ value_json.filename }}
+      {% else %}
+        Unknown
+      {% endif %}
+    json_attributes:
+      - artist
+      - title
+      - filename
+      - remaining
+      - remaining_fmt
+      - source
+      - scheduled_source
+      - listeners
+      - listener_peak
+      - genre_override
+      - queue_depth
+      - icecast_connected
+
+  - platform: rest
+    name: "KNOB Genre Override"
+    resource: "http://beyla.local:8081/api/genre"
+    scan_interval: 10
+    value_template: >-
+      {% if value_json.active %}
+        {% if value_json.subgenre %}
+          {{ value_json.genre }} / {{ value_json.subgenre }}
+        {% else %}
+          {{ value_json.genre }}
+        {% endif %}
+      {% else %}
+        None
+      {% endif %}
+    json_attributes:
+      - active
+      - genre
+      - subgenre
+      - tracks_available
+      - tracks_pushed
+
+# ─── Input Select (genre picker) ─────────────────────────────────────────────
+
+input_select:
+  knob_genre:
+    name: "KNOB Genre"
+    options:
+      - "Off"
+      - "Bass"
+      - "Chill"
+      - "Electronic"
+      - "Hip-Hop"
+      - "Dub/Reggae"
+      - "Metal"
+      - "Punk"
+      - "Blues/Soul"
+      - "Jazz"
+      - "Classical"
+      - "Pop/Rock"
+    initial: "Off"
+    icon: mdi:music-box
+
+# ─── Automations ──────────────────────────────────────────────────────────────
+
+automation:
+  - alias: "KNOB - Genre selector"
+    id: knob_genre_selector
+    trigger:
+      - trigger: state
+        entity_id: input_select.knob_genre
+    action:
+      - choose:
+          - conditions:
+              - condition: state
+                entity_id: input_select.knob_genre
+                state: "Off"
+            sequence:
+              - action: rest_command.knob_clear_genre
+        default:
+          - action: rest_command.knob_set_genre
+            data:
+              genre: "{{ states('input_select.knob_genre') }}"
+
+  - alias: "KNOB - Sync genre dropdown from API"
+    id: knob_genre_sync
+    trigger:
+      - trigger: state
+        entity_id: sensor.knob_genre_override
+    action:
+      - action: input_select.select_option
+        target:
+          entity_id: input_select.knob_genre
+        data:
+          option: >-
+            {% if states('sensor.knob_genre_override') == 'None' %}
+              Off
+            {% elif '/' in states('sensor.knob_genre_override') %}
+              {{ states('sensor.knob_genre_override').split(' / ')[0] }}
+            {% else %}
+              {{ states('sensor.knob_genre_override') }}
+            {% endif %}

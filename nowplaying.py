@@ -29,6 +29,7 @@ SCHEDULE = [
 ]
 
 ICECAST_URL = "http://localhost:8000/status-json.xsl"
+RADIO_API_URL = "http://localhost:8081/api/genre"
 TELNET_HOST = "localhost"
 TELNET_PORT = 1234
 
@@ -105,6 +106,33 @@ def telnet_command(cmd, timeout=2):
         return None
 
 
+def fetch_genre_override():
+    """Fetch current genre override from the radio API."""
+    try:
+        req = urllib.request.Request(RADIO_API_URL, headers={"User-Agent": "nowplaying"})
+        with urllib.request.urlopen(req, timeout=2) as resp:
+            data = json.loads(resp.read().decode())
+        if data.get("active"):
+            genre = data.get("genre", "")
+            subgenre = data.get("subgenre")
+            if subgenre:
+                return f"{genre} / {subgenre}"
+            return genre
+    except Exception:
+        pass
+    return None
+
+
+def get_harbor_status():
+    """Check if a live DJ is connected to the harbor input."""
+    resp = telnet_command("input.harbor.status")
+    if resp and "connected from" in resp.lower():
+        # Response: "source client connected from 10.21.1.94"
+        ip = resp.strip().split()[-1]
+        return {"connected": True, "client_ip": ip}
+    return {"connected": False, "client_ip": None}
+
+
 def get_remaining():
     """Get seconds remaining on current track from Liquidsoap."""
     resp = telnet_command("/stream_ogg.remaining")
@@ -178,12 +206,15 @@ def format_hour(h):
         return f"{h-12}pm"
 
 
-def build_display(icecast, telnet_meta, remaining):
+def build_display(icecast, telnet_meta, remaining, genre_override=None,
+                   harbor_status=None):
     """Build the Rich display."""
     now = datetime.now()
     hour = now.hour
     current_source, current_fmt = get_scheduled_source(hour)
     next_hour, next_source = get_next_change(hour)
+
+    dj_connected = harbor_status and harbor_status.get("connected", False)
 
     # Track info
     artist = ""
@@ -218,17 +249,18 @@ def build_display(icecast, telnet_meta, remaining):
     # Remaining time
     remaining_text = format_duration(remaining)
 
-    # Source from filename path
-    detected_source = ""
-    if filename:
+    # Source from filename path or DJ status
+    if dj_connected:
+        detected_source = "LIVE DJ"
+    elif filename:
         if "MOBCOIN" in filename:
             detected_source = "Noisefloor"
         elif "pandoras_box" in filename:
             detected_source = "Pandora's Box"
-        elif "AUTODJ" in filename:
-            detected_source = "AUTODJ"
         else:
             detected_source = "AUTODJ"
+    else:
+        detected_source = ""
 
     source_display = detected_source or current_source
 
@@ -247,6 +279,8 @@ def build_display(icecast, telnet_meta, remaining):
     track_table.add_row("NOW PLAYING", track_text)
     track_table.add_row("REMAINING", Text(remaining_text, style="yellow"))
     track_table.add_row("SOURCE", Text(source_display, style="green bold"))
+    if genre_override:
+        track_table.add_row("GENRE", Text(genre_override, style="bold magenta"))
 
     track_panel = Panel(
         track_table,
@@ -335,7 +369,10 @@ def main():
                 icecast = fetch_icecast_status()
                 telnet_meta = get_telnet_metadata()
                 remaining = get_remaining()
-                display = build_display(icecast, telnet_meta, remaining)
+                genre_override = fetch_genre_override()
+                harbor_status = get_harbor_status()
+                display = build_display(icecast, telnet_meta, remaining,
+                                        genre_override, harbor_status)
                 live.update(display)
             except KeyboardInterrupt:
                 break

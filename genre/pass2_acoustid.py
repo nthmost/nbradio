@@ -84,13 +84,16 @@ def lookup_acoustid(api_key, fingerprint, duration):
     """
     try:
         results = acoustid.lookup(
-            api_key, fingerprint, duration,
-            meta="recordings",
+            api_key, fingerprint, int(duration),
+            meta=["recordings"],
+            timeout=15,
         )
     except Exception:
         return []
 
     matches = []
+    if not isinstance(results, dict):
+        return []
     for result in results.get("results", []):
         score = result.get("score", 0)
         for recording in result.get("recordings", []):
@@ -156,8 +159,7 @@ def classify_track(db, track, api_key, verbose=False):
     if duration:
         extra_fields["duration"] = duration
 
-    # AcoustID lookup
-    time.sleep(ACOUSTID_DELAY)
+    # AcoustID lookup (pyacoustid has built-in 0.33s rate limiting)
     matches = lookup_acoustid(api_key, fingerprint, duration)
     if not matches:
         db.mark_pass_done(track_id, 2)
@@ -231,6 +233,8 @@ def run_pass2(db, verbose=False, limit=None):
     for i, track in enumerate(tracks, 1):
         if verbose:
             print(f"  [{i}/{len(tracks)}]", end="")
+        elif i % 25 == 0:
+            print(f"  [{i}/{len(tracks)}] classified={classified} skipped={skipped}")
         parent, sub = classify_track(db, track, api_key, verbose=verbose)
         if parent:
             classified += 1

@@ -13,14 +13,48 @@ settings.server.telnet.set(true)
 settings.server.telnet.port.set(1234)
 
 # ===========================================
-# DJ INPUT
+# DJ INPUT (multi-user auth)
 # ===========================================
+
+# Authenticate DJs against a credentials file.
+# File format: one "username:password" per line, # comments allowed.
+# The file is re-read on every connection so new DJs can be added live.
+dj_creds_file = "/etc/liquidsoap/dj_credentials"
+
+def dj_auth(login) =
+  user = login.user
+  password = login.password
+  if file.exists(dj_creds_file) then
+    content = file.contents(dj_creds_file)
+    lines = string.split(separator="\n", content)
+    matched = list.exists(fun(line) -> begin
+      trimmed = string.trim(line)
+      if string.length(trimmed) == 0 or string.sub(trimmed, start=0, length=1) == "#" then
+        false
+      else
+        parts = string.split(separator=":", trimmed)
+        list.length(parts) >= 2 and
+          list.nth(default="", parts, 0) == user and
+          list.nth(default="", parts, 1) == password
+      end
+    end, lines)
+    if matched then
+      log("DJ auth OK: #{user}")
+    else
+      log("DJ auth FAILED: #{user}")
+    end
+    matched
+  else
+    log("DJ credentials file not found, falling back to env vars")
+    user == environment.get("DJ_USER", default="source") and
+      password == environment.get("DJ_PASSWORD", default="changeme")
+  end
+end
 
 dj_harbor = input.harbor(
   "live",
   port=8005,
-  user=environment.get("DJ_USER", default="source"),
-  password=environment.get("DJ_PASSWORD", default="changeme"),
+  auth=dj_auth,
   max=30.0,
   on_connect=fun(metadata) -> log("DJ connected: #{metadata}")
 )
