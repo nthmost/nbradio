@@ -234,8 +234,17 @@ class GenreFeeder:
             }
 
     def start(self, genre, subgenre=None):
-        """Start (or restart) the genre feeder."""
-        self.stop()
+        """Start (or restart) the genre feeder.
+
+        Pushes new genre tracks before clearing old queue entries so
+        Liquidsoap always has something queued — avoids interrupting
+        the currently playing track.
+        """
+        # Snapshot old queue entries before we push new ones
+        old_queue = queue_list()
+
+        # Stop the feed loop (but don't clear the queue yet)
+        self.stop(clear_queue=False)
 
         tracks = db_get_tracks(parent=genre, sub=subgenre)
         if not tracks:
@@ -251,8 +260,12 @@ class GenreFeeder:
             self._pushed = []
             self._stop_event.clear()
 
-        # Push initial batch (plays after current track finishes)
+        # Push new genre tracks first (so queue is never empty)
         self._push_batch(QUEUE_PUSH)
+
+        # Now clear old queue entries that were there before
+        for rid in old_queue:
+            queue_ignore(rid)
 
         self._thread = threading.Thread(target=self._feed_loop, daemon=True)
         self._thread.start()
