@@ -341,7 +341,7 @@ OPENAPI_SPEC = {
             "from that genre instead of the normal schedule. When the queue is "
             "empty and no genre is set, the normal time-based schedule resumes."
         ),
-        "version": "1.0.0",
+        "version": "1.1.0",
     },
     "servers": [
         {"url": "http://localhost:8081", "description": "Local"},
@@ -552,16 +552,36 @@ OPENAPI_SPEC = {
                         "content": {"application/json": {"schema": {
                             "type": "object",
                             "properties": {
-                                "artist": {"type": "string"},
-                                "title": {"type": "string"},
-                                "filename": {"type": "string"},
-                                "remaining": {"type": "number", "nullable": True, "description": "Seconds remaining"},
-                                "remaining_fmt": {"type": "string", "description": "M:SS format"},
-                                "source": {"type": "string", "description": "Active source: AUTODJ, Pandora's Box, Noisefloor, or DJ"},
-                                "scheduled_source": {"type": "string"},
-                                "listeners": {"type": "integer"},
-                                "genre_override": {"type": "object", "nullable": True},
-                                "queue_depth": {"type": "integer"},
+                                "artist": {"type": "string", "description": "Current track artist"},
+                                "title": {"type": "string", "description": "Current track title"},
+                                "filename": {"type": "string", "description": "Basename of the audio file"},
+                                "remaining": {"type": "number", "nullable": True, "description": "Seconds remaining in current track"},
+                                "remaining_fmt": {"type": "string", "description": "Remaining time in M:SS format"},
+                                "source": {"type": "string", "description": "Active source: AUTODJ, Pandora's Box, Noisefloor, or LIVE DJ"},
+                                "scheduled_source": {"type": "string", "description": "What the time-based schedule says should be playing"},
+                                "next_source": {"type": "string", "description": "Next scheduled source name"},
+                                "next_hour_fmt": {"type": "string", "description": "Hour when next source change occurs (e.g. '5pm')"},
+                                "listeners": {"type": "integer", "description": "Current Icecast listener count"},
+                                "listener_peak": {"type": "integer", "description": "Peak listener count since stream start"},
+                                "time": {"type": "string", "description": "Current server time (HH:MM:SS AM/PM)"},
+                                "icecast_connected": {"type": "boolean", "description": "Whether Icecast is reachable"},
+                                "dj_connected": {"type": "boolean", "description": "Whether a live DJ is connected to the harbor input"},
+                                "dj_client_ip": {"type": "string", "nullable": True, "description": "IP address of connected DJ client"},
+                                "shazam_artist": {"type": "string", "description": "Shazam-recognized artist (for DJ sets)"},
+                                "shazam_title": {"type": "string", "description": "Shazam-recognized title (for DJ sets)"},
+                                "shazam_url": {"type": "string", "description": "Shazam match URL"},
+                                "genre_override": {
+                                    "type": "object", "nullable": True,
+                                    "description": "Active genre override, or null if normal schedule",
+                                    "properties": {
+                                        "genre": {"type": "string", "description": "Parent genre name"},
+                                        "subgenre": {"type": "string", "nullable": True, "description": "Subgenre name"},
+                                        "tracks_available": {"type": "integer"},
+                                        "tracks_pushed": {"type": "integer"},
+                                        "position": {"type": "integer"},
+                                    },
+                                },
+                                "queue_depth": {"type": "integer", "description": "Number of tracks in the Liquidsoap queue"},
                             },
                         }}},
                     },
@@ -799,7 +819,9 @@ class RadioAPIHandler(BaseHTTPRequestHandler):
     def _handle_index(self):
         info = {
             "service": "KNOB Radio Control API",
+            "version": "1.1.0",
             "spec": "/api/spec",
+            "stream": "https://nthmost.com/nbradio/stream.ogg",
             "endpoints": {
                 "GET /api/genres": "List genres with track counts",
                 "GET /api/genre": "Current genre override status",
