@@ -78,9 +78,9 @@ def queue_list():
     return [r for r in rids if r]
 
 
-def queue_ignore(rid):
-    """Remove a pending request from the queue."""
-    return telnet_command(f"queue.ignore {rid}")
+def queue_flush():
+    """Flush all pending requests from the queue and skip the current queue track."""
+    return telnet_command("queue.flush_and_skip")
 
 
 def skip_track():
@@ -236,15 +236,11 @@ class GenreFeeder:
     def start(self, genre, subgenre=None):
         """Start (or restart) the genre feeder.
 
-        Pushes new genre tracks before clearing old queue entries so
-        Liquidsoap always has something queued — avoids interrupting
-        the currently playing track.
+        Flushes the old queue, pushes new genre tracks, and skips the
+        current track so the genre change takes effect immediately.
         """
-        # Snapshot old queue entries before we push new ones
-        old_queue = queue_list()
-
-        # Stop the feed loop (but don't clear the queue yet)
-        self.stop(clear_queue=False)
+        # Stop the feed loop first
+        self.stop(clear_queue=True)
 
         tracks = db_get_tracks(parent=genre, sub=subgenre)
         if not tracks:
@@ -260,12 +256,11 @@ class GenreFeeder:
             self._pushed = []
             self._stop_event.clear()
 
-        # Push new genre tracks first (so queue is never empty)
+        # Push new genre tracks
         self._push_batch(QUEUE_PUSH)
 
-        # Now clear old queue entries that were there before
-        for rid in old_queue:
-            queue_ignore(rid)
+        # Skip the current track so the new genre plays immediately
+        skip_track()
 
         self._thread = threading.Thread(target=self._feed_loop, daemon=True)
         self._thread.start()
@@ -275,7 +270,8 @@ class GenreFeeder:
         """Stop the feeder and optionally clear queued tracks."""
         if self._thread is not None:
             self._stop_event.set()
-            self._thread.join(timeout=5)
+            # Wait long enough for telnet ops (3s timeout × 3 pushes + margin)
+            self._thread.join(timeout=15)
             self._thread = None
 
         with self._lock:
@@ -286,9 +282,7 @@ class GenreFeeder:
             self._pushed = []
 
         if clear_queue:
-            # Clear any remaining queued tracks
-            for rid in queue_list():
-                queue_ignore(rid)
+            queue_flush()
 
     def _next_track(self):
         """Get the next track, wrapping and reshuffling when exhausted."""
@@ -309,17 +303,25 @@ class GenreFeeder:
             if track is None:
                 break
             filepath = track_filepath(track)
-            if os.path.exists(filepath):
-                if queue_push(filepath):
-                    with self._lock:
-                        self._pushed.append(track)
+            try:
+                if os.path.exists(filepath):
+                    if queue_push(filepath):
+                        with self._lock:
+                            self._pushed.append(track)
+            except OSError:
+                pass
 
     def _feed_loop(self):
         """Poll loop: keep the queue topped up."""
         while not self._stop_event.wait(FEEDER_POLL_INTERVAL):
-            pending = queue_list()
-            if len(pending) < QUEUE_MIN:
-                self._push_batch(QUEUE_PUSH)
+            try:
+                pending = queue_list()
+                if len(pending) < QUEUE_MIN:
+                    self._push_batch(QUEUE_PUSH)
+            except Exception:
+                # Don't let transient errors (telnet hiccup, filesystem
+                # glitch) kill the feeder — just retry next poll cycle
+                pass
 
 
 # Global feeder instance
@@ -769,8 +771,7 @@ class RadioAPIHandler(BaseHTTPRequestHandler):
 
     def _handle_queue_clear(self):
         rids = queue_list()
-        for rid in rids:
-            queue_ignore(rid)
+        queue_flush()
         json_response(self, {"ok": True, "cleared": len(rids)})
 
     # --- Skip ---
