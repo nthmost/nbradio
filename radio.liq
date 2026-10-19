@@ -208,6 +208,20 @@ radio = fallback(
   ]
 )
 
+# ===========================================
+# LOUDNESS NORMALIZATION (per-track ReplayGain)
+# ===========================================
+# Fixes "some songs louder/quieter than others" on KNOB. The metadata
+# resolver computes a `replaygain_track_gain` tag per file via ffmpeg
+# (ratio=50. => decode ~50x realtime to keep CPU peaks low); `replaygain`
+# then applies that fixed per-track gain. Unlike dynamic `normalize` this
+# does not pump. `limit` is a brickwall safety net for stray peaks and for
+# live DJ / SomaFM input (which carry no replaygain tags, so replaygain
+# passes them through unchanged).
+enable_replaygain_metadata(ratio=50.)
+radio = replaygain(radio)
+radio = limit(radio)
+
 output.icecast(
   %vorbis(quality=0.5),
   host="localhost",
